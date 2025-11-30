@@ -19,17 +19,17 @@ typedef struct {
     int id;
     char* name;
     int servings;
-    Ingredient* ing_list;
-    int ing_count;
-    int ing_alloc;
+    Ingredient* list;
+    int number;
+    int allocate;
 } Recipe;
 
 Recipe* all_recipes = NULL;
-int recipe_count = 0;
-int recipe_cap = 0;
+int recipe_num = 0;
+int recipe_lim = 0;
 
-const char* file_recipes = "recipes.dat";
-const char* file_ingredients = "ingredients.dat";
+const char* file_recipes = "recipes.txt";
+const char* file_ingredients = "ingredients.txt";
 
 
 void get_str(char* prompt, char *buf) {
@@ -55,28 +55,28 @@ double get_double(char* prompt) {
 
 
 void check_db_size() {
-    if (recipe_count >= recipe_cap) {
-        int new_cap = (recipe_cap == 0) ? 10 : recipe_cap * 2;
-        Recipe* tmp = realloc(all_recipes, sizeof(Recipe) * new_cap);
+    if (recipe_num >= recipe_lim) {
+        int new_lim = (recipe_lim == 0) ? 10 : recipe_lim * 2;
+        Recipe* tmp = realloc(all_recipes, sizeof(Recipe) * new_lim);
         if (!tmp) {
             printf("Memory error\n");
             exit(1);
         }
         all_recipes = tmp;
-        recipe_cap = new_cap;
+        recipe_lim = new_lim;
     }
 }
 
 int get_next_id() {
     int max = 0;
-    for (int i = 0; i < recipe_count; i++) {
+    for (int i = 0; i < recipe_num; i++) {
         if (all_recipes[i].id > max) max = all_recipes[i].id;
     }
     return max + 1;
 }
 
 Recipe* find_recipe(int id) {
-    for (int i = 0; i < recipe_count; i++) {
+    for (int i = 0; i < recipe_num; i++) {
         if (all_recipes[i].id == id) return &all_recipes[i];
     }
     return NULL;
@@ -84,21 +84,21 @@ Recipe* find_recipe(int id) {
 
 
 void add_ingredient(Recipe* r, char* n, double q, char* u) {
-    if ((*r).ing_count >= (*r).ing_alloc) {
-        int nc = ((*r).ing_alloc == 0) ? 4 : (*r).ing_alloc * 2;
-        Ingredient *tmp = realloc((*r).ing_list, sizeof(Ingredient) * nc);
+    if ((*r).number >= (*r).allocate) {
+        int nc = ((*r).allocate == 0) ? 4 : (*r).allocate * 2;
+        Ingredient *tmp = realloc((*r).list, sizeof(Ingredient) * nc);
         if (!tmp) return;
-        (*r).ing_list = tmp;
-        (*r).ing_alloc = nc;
+        (*r).list = tmp;
+        (*r).allocate = nc;
     }
     
-    Ingredient* ing = &(*r).ing_list[(*r).ing_count];
+    Ingredient* ing = &(*r).list[(*r).number];
     
     (*ing).name = strdup(n);
     (*ing).qty = q;
     strncpy((*ing).unit, u, 19);
     
-    (*r).ing_count++;
+    (*r).number++;
 }
 
 
@@ -111,17 +111,17 @@ void create_recipe() {
     
     check_db_size();
     
-    Recipe* r = &all_recipes[recipe_count];
+    Recipe* r = &all_recipes[recipe_num];
     
     (*r).id = get_next_id();
     (*r).name = strdup(name);
     (*r).servings = serv;
-    (*r).ing_list = NULL;
-    (*r).ing_count = 0;
-    (*r).ing_alloc = 0;
+    (*r).list = NULL;
+    (*r).number = 0;
+    (*r).allocate = 0;
     
-    recipe_count++;
-    printf("Recipe created (ID: %d)\n", (*r).id);
+    recipe_num++;
+    printf("Recipe ID: %d\n", (*r).id);
     
     while(1) {
         char iname[100];
@@ -141,7 +141,7 @@ void delete_recipe() {
     int id = get_int("ID to delete:");
     int idx = -1;
     
-    for (int i = 0; i < recipe_count; i++) {
+    for (int i = 0; i < recipe_num; i++) {
         if (all_recipes[i].id == id) {
             idx = i;
             break;
@@ -157,23 +157,23 @@ void delete_recipe() {
     
     free((*r).name);
     
-    for(int i=0; i < (*r).ing_count; i++) {
-        free((*r).ing_list[i].name);
+    for(int i=0; i < (*r).number; i++) {
+        free((*r).list[i].name);
     }
-    free((*r).ing_list);
+    free((*r).list);
     
-    for (int i = idx; i < recipe_count - 1; i++) {
+    for (int i = idx; i < recipe_num - 1; i++) {
         all_recipes[i] = all_recipes[i+1];
     }
     
-    recipe_count--;
+    recipe_num--;
     printf("Deleted.\n");
 }
 
 
 void list_recipes() {
     printf("\n\t\t\tLIST\t\t\t\n");
-    for (int i = 0; i < recipe_count; i++) {
+    for (int i = 0; i < recipe_num; i++) {
         printf("[%d] %s (serves %d)\n", all_recipes[i].id, all_recipes[i].name, all_recipes[i].servings);
     }
     printf("------------------\n");
@@ -184,13 +184,13 @@ void view_recipe() {
     int id = get_int("Enter ID:");
     Recipe* r = find_recipe(id);
     if (!r) {
-        printf("No corresponding recipes found please add a recipe to view.\n");
+        printf("No recipes found.\n");
         return;
     }
     
     printf("\n%s (No. Of Servings %d)\n", (*r).name, (*r).servings);
-    for (int i = 0; i < (*r).ing_count; i++) {
-        printf(" - %.2f %s %s\n", (*r).ing_list[i].qty, (*r).ing_list[i].unit, (*r).ing_list[i].name);
+    for (int i = 0; i < (*r).number; i++) {
+        printf(" - %.2f %s %s\n", (*r).list[i].qty, (*r).list[i].unit, (*r).list[i].name);
     }
 }
 
@@ -204,16 +204,16 @@ void save_data() {
         return;
     }
     
-    for (int i = 0; i < recipe_count; i++) {
+    for (int i = 0; i < recipe_num; i++) {
         Recipe* r = &all_recipes[i];
         fprintf(fp1, "%d|%s|%d\n", (*r).id, (*r).name, (*r).servings);
         
-        for (int j = 0; j < (*r).ing_count; j++) {
+        for (int j = 0; j < (*r).number; j++) {
             fprintf(fp2, "%d|%s|%.2f|%s\n", 
                     (*r).id, 
-                    (*r).ing_list[j].name, 
-                    (*r).ing_list[j].qty, 
-                    (*r).ing_list[j].unit);
+                    (*r).list[j].name, 
+                    (*r).list[j].qty, 
+                    (*r).list[j].unit);
         }
     }
     
@@ -232,14 +232,14 @@ void load_data() {
     
     while(fscanf(fp, "%d|%99[^|]|%d\n", &id, name, &serv) == 3) {
         check_db_size();
-        Recipe* r = &all_recipes[recipe_count];
+        Recipe* r = &all_recipes[recipe_num];
         (*r).id = id;
         (*r).name = strdup(name);
         (*r).servings = serv;
-        (*r).ing_list = NULL;
-        (*r).ing_count = 0;
-        (*r).ing_alloc = 0;
-        recipe_count++;
+        (*r).list = NULL;
+        (*r).number = 0;
+        (*r).allocate = 0;
+        recipe_num++;
     }
     fclose(fp);
     
